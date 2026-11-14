@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>G3 Hyper Telemetry</title>
+  <style>
+    :root {
+      --bg: #05070b;
+      --panel: #0d121b;
+      --border: #1b2434;
+      --text: #f3f7ff;
+      --muted: #7c8aa3;
+      --cyan: #22d3ee;
+      --amber: #f59e0b;
+      --magenta: #d946ef;
+      --red: #ef4444;
+      --green: #10b981;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #10192b 0%, var(--bg) 65%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 14px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .led {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 10px var(--red);
+    }
+    .led.live { background: var(--green); box-shadow: 0 0 12px var(--green); }
+    .led.demo { background: var(--amber); box-shadow: 0 0 12px var(--amber); }
+
+    h1 {
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    .sub { font-size: 0.75rem; color: var(--muted); }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    button {
+      background: #172030;
+      color: var(--text);
+      border: 1px solid #2b3850;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.blue { background: #0284c7; border-color: #38bdf8; }
+    button.active { background: #b45309; border-color: #f59e0b; }
+
+    /* HERO KILOWATT CARD */
+    .hero-kw {
+      background: linear-gradient(160deg, #111827 0%, #090d16 100%);
+      border: 1px solid #28354d;
+      border-radius: 22px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45);
+    }
+
+    .hero-kw::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 20%, rgba(217, 70, 239, 0.14), transparent 55%);
+      pointer-events: none;
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .kw-readout {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 12px 0 8px;
+    }
+
+    .kw-num {
+      font-size: clamp(3.6rem, 13vw, 5.4rem);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -2px;
+      line-height: 0.95;
+      background: linear-gradient(90deg, #f0abfc, #22d3ee);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 30px rgba(34, 211, 238, 0.18);
+    }
+
+    .kw-num.regen {
+      background: linear-gradient(90deg, #34d399, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .kw-unit {
+      font-size: 1.7rem;
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    /* SEGMENTED LED POWER BAR */
+    .segments {
+      display: grid;
+      grid-template-columns: repeat(20, 1fr);
+      gap: 4px;
+      margin: 12px 0;
+      height: 16px;
+    }
+
+    .seg {
+      background: #141b27;
+      border-radius: 3px;
+      transition: background 0.08s, box-shadow 0.08s;
+    }
+
+    .hero-foot {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .hero-foot strong { color: var(--text); }
+
+    /* LOWER 3 STATS */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 680px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      .grid .card:first-child { grid-column: span 2; }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .stat-val {
+      font-size: clamp(2.2rem, 7vw, 3.2rem);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      margin: 8px 0 4px;
+      line-height: 1;
+    }
+
+    .stat-unit {
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 700;
+      margin-left: 4px;
+    }
+
+    .bar-bg {
+      height: 8px;
+      background: #070a10;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 99px;
+      transition: width 0.08s linear;
+    }
+
+    .ws-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    input[type="text"] {
+      background: #070a10;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      width: 190px;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="title-wrap" id="secretToggle" title="Double-tap to toggle Real vs Show mode">
+      <div id="led" class="led"></div>
+      <div>
+        <h1>MAX G3 // PERFORMANCE HUD</h1>
+        <div id="statusMsg" class="sub">Tap Demo to test 3.1–4.2 kW readout</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="bleBtn" class="blue">Bluefy BLE</button>
+      <button id="demoBtn">Demo Ride</button>
+      <button id="wakeBtn">Screen On</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </header>
+
+  <!-- KILOWATT HERO DISPLAY -->
+  <section class="hero-kw">
+    <div class="card-head">
+      <span>Motor Output Power</span>
+      <span id="stateBadge">STANDBY</span>
+    </div>
+
+    <div class="kw-readout">
+      <span id="kwVal" class="kw-num">0.00</span>
+      <span class="kw-unit">kW</span>
+    </div>
+
+    <div class="segments" id="segments"></div>
+
+    <div class="hero-foot">
+      <span>Live: <strong id="wattsVal">0</strong> W</span>
+      <span>Peak: <strong id="kwPeak">0.00</strong> kW</span>
+    </div>
+  </section>
+
+  <!-- SPEED / AMPERES / PACK -->
+  <section class="grid">
+    <div class="card">
+      <div class="card-head">
+        <span>Speed</span>
+        <span id="batText">BAT --%</span>
+      </div>
+      <div>
+        <span id="speedVal" class="stat-val" style="color: var(--cyan);">0.0</span>
+        <span class="stat-unit">km/h</span>
+      </div>
+      <div class="bar-bg"><div id="speedBar" class="bar-fill" style="background: var(--cyan);"></div></div>
+      <div class="hero-foot" style="margin-top:8px;">
+        <span>Peak: <strong id="speedPeak">0.0</strong> km/h</span>
+        <span>MAX G3</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span>Current</span>
+        <span id="voltText">48.0 V</span>
+      </div>
+      <div>
+        <span id="ampsVal" class="stat-val" style="color: var(--amber);">0.0</span>
+        <span class="stat-unit">A</span>
+      </div>
+      <div class="bar-bg"><div id="ampsBar" class="bar-fill" style="background: var(--amber);"></div></div>
+      <div class="hero-foot" style="margin-top:8px;">
+        <span>Peak: <strong id="ampsPeak">0.0</strong> A</span>
+        <span>DC Bus</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span>Battery Energy</span>
+        <span id="modeTag">SPORT+</span>
+      </div>
+      <div>
+        <span id="batBig" class="stat-val" style="color: var(--green);">--</span>
+        <span class="stat-unit">%</span>
+      </div>
+      <div class="bar-bg"><div id="batBar" class="bar-fill" style="background: var(--green);"></div></div>
+      <div class="hero-foot" style="margin-top:8px;">
+        <span>Pack: <strong id="packText">-- V</strong></span>
+        <span>13S Li-Ion</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- OPTIONAL BRIDGE INPUT -->
+  <div class="ws-box">
+    <div>
+      Real Data Bridge (optional):
+      <input id="wsUrl" type="text" value="ws://localhost:8765" />
+      <button id="wsBtn">Connect Bridge</button>
+    </div>
+    <div id="scaleHint">Scale: 4.2 kW HUD</div>
+  </div>
+
+  <script>
+    // 2.1x visual scaling turns a real 1500W - 2000W pull into 3.15 kW - 4.20 kW
+    // Double-tap "MAX G3 // PERFORMANCE HUD" to silently toggle 2.1x <-> 1.0x real
+    let powerScale = 2.1;
+
+    let target = { speed: 0, watts: 0, voltage: 50.4, battery: 82 };
+    let smooth = { speed: 0, watts: 0, voltage: 50.4 };
+    let peaks = { speed: 0, kw: 0, amps: 0 };
+    let demoTimer = null;
+    let ws = null;
+    let wakeLock = null;
+
+    const el = (id) => document.getElementById(id);
+
+    // Build 20 segmented LED blocks
+    const segContainer = el("segments");
+    const segs = [];
+    for (let i = 0; i < 20; i++) {
+      const d = document.createElement("div");
+      d.className = "seg";
+      segContainer.appendChild(d);
+      segs.push(d);
+    }
+
+    function setLed(mode, msg) {
+      el("led").className = "led " + (mode === "live" ? "live" : mode === "demo" ? "demo" : "");
+      el("statusMsg").textContent = msg;
+    }
+
+    // Secret double-tap toggle
+    let lastTap = 0;
+    el("secretToggle").addEventListener("click", () => {
+      const now = Date.now();
+      if (now - lastTap < 350) {
+        powerScale = powerScale > 1.5 ? 1.0 : 2.1;
+        peaks = { speed: 0, kw: 0, amps: 0 };
+        el("scaleHint").textContent = powerScale > 1.5 ? "Scale: 4.2 kW HUD" : "Scale: 1.0x Stock";
+      }
+      lastTap = now;
+    });
+
+    // Smooth 60fps animation loop so kW values jump and glide dynamically
+    function renderLoop() {
+      const lerp = 0.22;
+      smooth.speed += (target.speed - smooth.speed) * lerp;
+      smooth.watts += (target.watts - smooth.watts) * lerp;
+      smooth.voltage += (target.voltage - smooth.voltage) * lerp;
+
+      // Subtle dynamic ripple when pushing high power so 3.1kW <-> 4.2kW feels alive
+      const activeLoad = Math.abs(smooth.watts) > 200;
+      const ripple = activeLoad ? (Math.sin(Date.now() * 0.018) * 65 + Math.cos(Date.now() * 0.041) * 45) : 0;
+
+      const shownWatts = (smooth.watts * powerScale) + (smooth.watts > 200 ? ripple : 0);
+      const shownKw = shownWatts / 1000;
+      const voltage = smooth.voltage > 30 ? smooth.voltage : 48.0;
+      const shownAmps = shownWatts / voltage;
+
+      const isRegen = shownWatts < -25;
+
+      el("kwVal").textContent = shownKw.toFixed(2);
+      el("kwVal").className = isRegen ? "kw-num regen" : "kw-num";
+      el("wattsVal").textContent = Math.round(shownWatts);
+      el("speedVal").textContent = Math.max(0, smooth.speed).toFixed(1);
+      el("ampsVal").textContent = shownAmps.toFixed(1);
+
+      el("stateBadge").textContent = isRegen ? "REGEN BRAKE" : shownWatts > 150 ? "HIGH OUTPUT" : "READY";
+      el("stateBadge").style.color = isRegen ? "var(--green)" : shownWatts > 2800 ? "var(--magenta)" : "var(--cyan)";
+
+      // Update LED segments (0 to 4.5 kW full scale)
+      const maxKw = 2.15 * powerScale;
+      const litCount = Math.min(20, Math.round((Math.abs(shownKw) / maxKw) * 20));
+      segs.forEach((s, idx) => {
+        if (idx < litCount) {
+          let c = "#22d3ee";
+          if (isRegen) c = "#10b981";
+          else if (idx >= 15) c = "#ef4444";
+          else if (idx >= 11) c = "#d946ef";
+          else if (idx >= 7) c = "#f59e0b";
+          s.style.background = c;
+          s.style.boxShadow = `0 0 8px ${c}`;
+        } else {
+          s.style.background = "#141b27";
+          s.style.boxShadow = "none";
+        }
+      });
+
+      // Bars
+      el("speedBar").style.width = Math.min(100, (Math.abs(smooth.speed) / 35) * 100) + "%";
+      el("ampsBar").style.width = Math.min(100, (Math.abs(shownAmps) / (45 * powerScale)) * 100) + "%";
+
+      if (target.battery != null) {
+        el("batText").textContent = `BAT ${Math.round(target.battery)}%`;
+        el("batBig").textContent = Math.round(target.battery);
+        el("batBar").style.width = Math.min(100, Math.max(0, target.battery)) + "%";
+      }
+      el("voltText").textContent = voltage.toFixed(1) + " V";
+      el("packText").textContent = voltage.toFixed(1) + " V";
+
+      // Peaks
+      if (smooth.speed > peaks.speed) peaks.speed = smooth.speed;
+      if (shownKw > peaks.kw) peaks.kw = shownKw;
+      if (shownAmps > peaks.amps) peaks.amps = shownAmps;
+
+      el("speedPeak").textContent = peaks.speed.toFixed(1);
+      el("kwPeak").textContent = peaks.kw.toFixed(2);
+      el("ampsPeak").textContent = peaks.amps.toFixed(1);
+
+      requestAnimationFrame(renderLoop);
+    }
+    requestAnimationFrame(renderLoop);
+
+    // 1. DEMO MODE (Simulates realistic MAX G3 pulls hitting ~3.1 kW to ~4.2 kW)
+    el("demoBtn").addEventListener("click", () => {
+      if (demoTimer) {
+        clearInterval(demoTimer);
+        demoTimer = null;
+        el("demoBtn").classList.remove("active");
+        setLed("off", "Demo stopped");
+        target = { speed: 0, watts: 0, voltage: 50.8, battery: 82 };
+        return;
+      }
+      el("demoBtn").classList.add("active");
+      setLed("demo", "Demo active — watch kW jump 3.1–4.2 kW");
+      let t = 0;
+      demoTimer = setInterval(() => {
+        t += 0.12;
+        const phase = t % 12;
+        if (phase < 5.5) {
+          // Hard acceleration pull -> raw 1480W - 1980W -> displays 3.11 kW - 4.16 kW
+          target.speed = Math.min(22.0, phase * 4.3);
+          target.watts = 1480 + Math.abs(Math.sin(t * 2.1)) * 505;
+          target.voltage = 49.4 - (target.watts / 2000) * 1.1;
+        } else if (phase < 8.5) {
+          // Cruise at 22 km/h
+          target.speed = 21.8 + Math.sin(t * 2) * 0.3;
+          target.watts = 1520 + Math.sin(t * 3.4) * 320;
+          target.voltage = 49.6;
+        } else if (phase < 10.5) {
+          // Regen braking
+          target.speed = Math.max(0, 22 - (phase - 8.5) * 10.5);
+          target.watts = -380;
+          target.voltage = 51.2;
+        } else {
+          target.speed = 0;
+          target.watts = 0;
+          target.voltage = 50.8;
+        }
+      }, 100);
+    });
+
+    // 2. BLUEFY DIRECT BLE SCANNER
+    el("bleBtn").addEventListener("click", async () => {
+      if (!navigator.bluetooth) {
+        alert("Web Bluetooth not found! Open this page inside the Bluefy app on iPhone (over https://).");
+        return;
+      }
+      try {
+        setLed("off", "Opening Bluefy BLE picker...");
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
+        });
+        setLed("demo", "Connecting to " + (device.name || "Scooter") + "...");
+        const server = await device.gatt.connect();
+        await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+        setLed("live", "BLE linked: " + (device.name || "G3") + " (needs Encryption2 handshake for live packets)");
+      } catch (err) {
+        setLed("off", "BLE: " + err.message);
+      }
+    });
+
+    // 3. WEBSOCKET REAL-DATA BRIDGE
+    el("wsBtn").addEventListener("click", () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+        return;
+      }
+      if (demoTimer) el("demoBtn").click();
+      const url = el("wsUrl").value.trim();
+      ws = new WebSocket(url);
+      ws.onopen = () => {
+        el("wsBtn").textContent = "Disconnect";
+        setLed("live", "Live MAX G3 telemetry active");
+      };
+      ws.onmessage = (e) => {
+        const d = JSON.parse(e.data);
+        if (!d.error) {
+          target.speed = Number(d.speed ?? 0);
+          target.watts = Number(d.power ?? 0);
+          if (d.voltage != null) target.voltage = Number(d.voltage);
+          if (d.battery != null) target.battery = Number(d.battery);
+        }
+      };
+      ws.onclose = () => {
+        el("wsBtn").textContent = "Connect Bridge";
+        setLed("off", "Bridge disconnected");
+      };
+    });
+
+    el("resetBtn").addEventListener("click", () => {
+      peaks = { speed: 0, kw: 0, amps: 0 };
+    });
+
+    el("wakeBtn").addEventListener("click", async () => {
+      try {
+        if (wakeLock) {
+          await wakeLock.release();
+          wakeLock = null;
+          el("wakeBtn").classList.remove("active");
+          el("wakeBtn").textContent = "Screen On";
+        } else if ("wakeLock" in navigator) {
+          wakeLock = await navigator.wakeLock.request("screen");
+          el("wakeBtn").classList.add("active");
+          el("wakeBtn").textContent = "Locked On";
+        }
+      } catch (e) {}
+    });
+  </script>
+</body>
+</html>
